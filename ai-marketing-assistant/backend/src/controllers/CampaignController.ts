@@ -165,7 +165,7 @@ export class CampaignController {
       });
 
       // 生成二维码并保存
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = process.env.FRONTEND_URL || 'http://47.111.31.29';
       const qrCodeData = `${frontendUrl}/campaign/${campaign.id}`;
       const qrCodeUrl = await QRCode.toDataURL(qrCodeData);
       await prisma.campaign.update({
@@ -329,7 +329,8 @@ export class CampaignController {
       // Generate QR code if not exists
       let qrCodeUrl = campaign.qrCodeUrl;
       if (!qrCodeUrl) {
-        const qrCodeData = `${process.env.FRONTEND_URL}/campaign/${id}`;
+        const frontendUrl = process.env.FRONTEND_URL || 'http://47.111.31.29';
+        const qrCodeData = `${frontendUrl}/campaign/${id}`;
         qrCodeUrl = await QRCode.toDataURL(qrCodeData);
       }
 
