@@ -1,0 +1,276 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User management
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  phone     String?  @unique
+  password  String?
+  name      String
+  role      UserRole @default(ADMIN)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  campaigns    Campaign[]
+  analytics    Analytics[]
+  userSessions UserSession[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+// Campaign management
+model Campaign {
+  id          String        @id @default(cuid())
+  name        String
+  brandName   String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  status      CampaignStatus @default(DRAFT)
+  platforms   Platform[]
+  qrCodeUrl   String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  createdBy   String
+
+  // Campaign configuration
+  config CampaignConfig?
+
+  // Relations
+  user            User              @relation(fields: [createdBy], references: [id])
+  contents        Content[]
+  analytics       Analytics[]
+  activities      CampaignActivity[]
+  imageLibraries  ImageLibrary[]
+  userEngagements UserEngagement[]
+  rewards         Reward[]
+
+  @@map("campaigns")
+}
+
+enum CampaignStatus {
+  DRAFT
+  PENDING
+  ACTIVE
+  PAUSED
+  ENDED
+  DELETED
+}
+
+enum Platform {
+  XIAOHONGSHU
+  WECHAT_MOMENTS
+  DIANPING
+  WEIBO
+}
+
+model CampaignConfig {
+  id                String   @id @default(cuid())
+  campaignId        String   @unique
+  maxImagesPerPost  Int      @default(3)
+  maxPostsPerUser   Int      @default(1)
+  rewardMessage     String?
+  customerServiceQR String?
+  backgroundImage   String?
+  templateType      TemplateType @default(DEFAULT)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_configs")
+}
+
+enum TemplateType {
+  DEFAULT
+  CUSTOM
+}
+
+model CampaignActivity {
+  id         String   @id @default(cuid())
+  campaignId String
+  action     String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_activities")
+}
+
+// Content management
+model Content {
+  id          String        @id @default(cuid())
+  campaignId  String
+  type        ContentType
+  platform    Platform
+  title       String?
+  body        String
+  tags        String[]
+  images      String[]
+  isActive    Boolean       @default(true)
+  usageCount  Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("contents")
+}
+
+enum ContentType {
+  TEXT
+  IMAGE
+  MIXED
+}
+
+// Image library
+model ImageLibrary {
+  id          String   @id @default(cuid())
+  campaignId  String
+  name        String
+  category    String
+  url         String
+  cloudUrl    String?
+  isFirstImage Boolean @default(false)
+  isActive    Boolean  @default(true)
+  usageCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("image_libraries")
+}
+
+// Analytics and tracking
+model Analytics {
+  id         String   @id @default(cuid())
+  campaignId String
+  userId     String?
+  type       AnalyticsType
+  platform   Platform?
+  data       Json
+  createdAt  DateTime @default(now())
+
+  // Relations
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@map("analytics")
+}
+
+enum AnalyticsType {
+  PAGE_VIEW
+  CONTENT_GENERATION
+  CONTENT_PUBLISH
+  CONTENT_VIEW
+  CONTENT_LIKE
+  CONTENT_COMMENT
+  CONTENT_SHARE
+  USER_ENGAGEMENT
+}
+
+// Social media integration
+model PlatformIntegration {
+  id          String   @id @default(cuid())
+  platform    Platform @unique
+  apiKey      String?
+  apiSecret   String?
+  accessToken String?
+  refreshToken String?
+  expiresAt   DateTime?
+  isActive    Boolean  @default(false)
+  config      Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("platform_integrations")
+}
+
+// User engagement tracking
+model UserEngagement {
+  id         String   @id @default(cuid())
+  campaignId String
+  openId     String   // WeChat OpenID
+  platform   Platform
+  action     String
+  contentId  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("user_engagements")
+}
+
+// Reward system
+model Reward {
+  id         String   @id @default(cuid())
+  campaignId String
+  openId     String
+  status     RewardStatus @default(PENDING)
+  claimedAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, openId])
+  @@map("rewards")
+}
+
+enum RewardStatus {
+  PENDING
+  CLAIMED
+  EXPIRED
+}
+
+// System settings
+model SystemSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+} 
